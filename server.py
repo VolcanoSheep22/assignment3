@@ -22,6 +22,14 @@ import random
 import time
 import struct
 
+import socket
+import threading
+import os
+import base64
+import random
+import time
+import struct
+
 
 class FileTransferThread(threading.Thread):
     def __init__(self, client_addr, main_socket, filename, port_range_start=50000, port_range_end=51000):
@@ -122,3 +130,44 @@ class FileTransferThread(threading.Thread):
                     break
 
 
+def main():
+    import sys
+    if len(sys.argv) != 2:
+        print(f"用法: python3 {sys.argv[0]} <主端口>")
+        sys.exit(1)
+
+    main_port = int(sys.argv[1])
+    if not (1024 <= main_port <= 65535):
+        print("主端口需在1024-65535范围内")
+        sys.exit(1)
+
+    # 创建主服务器套接字
+    main_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        main_socket.bind(('0.0.0.0', main_port))
+        print(f"[SERVER] 服务器启动，监听端口 {main_port}")
+
+        while True:
+            # 接收客户端请求
+            data, client_addr = main_socket.recvfrom(1024)
+            request = data.decode('utf-8').strip()
+            print(f"[SERVER] 收到请求: {request} from {client_addr}")
+
+            # 解析下载请求
+            if request.startswith('DOWNLOAD '):
+                filename = request[9:]
+                print(f"[SERVER] 收到下载请求: {filename}")
+                # 为每个客户端请求创建新线程
+                thread = FileTransferThread(client_addr, main_socket, filename)
+                thread.daemon = True
+                thread.start()
+
+    except Exception as e:
+        print(f"[SERVER] 错误: {e}")
+    finally:
+        if main_socket:
+            main_socket.close()
+
+
+if __name__ == "__main__":
+    main()
